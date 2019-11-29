@@ -51,7 +51,8 @@ class wlts:
         :param end_date: A string with the end date in the following format: yyyy-mm-dd.
         :type end_date: string, optional
 
-        :param collections: The list of
+        :param collections: The list of collections
+        :type collections: string, optional
 
         :returns: Trajectory.
         :rtype: list
@@ -68,8 +69,7 @@ class wlts:
         :returns: Collection description.
         :rtype: dict
         """
-        pass
-
+        return self._get('{}/describe_collection?name={}'.format(self._url, name))
 
     def list_classification_sytem(self):
         """Return the list of available land use and land cover classification system."""
