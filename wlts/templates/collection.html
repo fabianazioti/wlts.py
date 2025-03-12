@@ -46,19 +46,51 @@
 
 <div class="container">
     <h3>{{ collection.title }} ({{ collection.name }})</h3>
-    <p><b>Type:</b> {{ collection.collection_type }}</p>
-    <p><b>Description:</b> {{ collection.description }}</p>
+    <p><strong>Type:</strong> {{ collection.collection_type }}</p>
+    <p><strong>Description:</strong> {{ collection.description }}</p>
 
-    <h4>Temporal Information</h4>
-    <p><b>Start Date:</b> {{ collection.period['start_date'] }}</p>
-    <p><b>End Date:</b> {{ collection.period['end_date'] }}</p>
-    <p><b>Resolution:</b> {{ collection.temporal_resolution['value'] }} {{ collection.temporal_resolution['unit'] }}</p>
+<h4>Temporal Information</h4>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Resolution</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ collection.period['start_date'] }}</td>
+                    <td>{{ collection.period['end_date'] }}</td>
+                    <td>{{ collection.temporal_resolution['value'] }} {{ collection.temporal_resolution['unit'] }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 
     <h4>Classification System</h4>
-    <p><b>ID:</b> {{ collection.classification_system['id'] }}</p>
-    <p><b>Title:</b> {{ collection.classification_system['title'] }}</p>
-    <p><b>Name:</b> {{ collection.classification_system['name'] }}</p>
-    <p><b>Version:</b> {{ collection.classification_system['version'] }}</p>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Name</th>
+                    <th>Version</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ collection.classification_system['id'] }}</td>
+                    <td>{{ collection.classification_system['title'] }}</td>
+                    <td>{{ collection.classification_system['name'] }}</td>
+                    <td>{{ collection.classification_system['version'] }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
 
     <h4>Spatial Extent</h4>
     <div class="table-container">
