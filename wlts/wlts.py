@@ -285,7 +285,7 @@ class WLTS:
             dataframe (pandas.DataFrame): The trajectory as dataframe representation.
 
         Keyword Args:
-            marker_size (int): The marker size .
+            marker_size (int): The marker size.
             title (str): The title. Ex: Land Use and Cover Trajectory.
             title_y (str): The title in the y-axis. Ex: Number of Points.
             date (str): Title of date. Ex: Year.
@@ -296,9 +296,9 @@ class WLTS:
             type (str): The graphic type: scatter or bar.
             textfont_size (int): The text font size.
             textangle (int): The text angle. Ex: 0.
-            textposition (str): Specifies the location of the text. Like “inside
-            cliponaxis (bool): Determines whether the text nodes are clipped abo
-            text_auto (bool): Determines  the display of text.
+            textposition (str): Specifies the location of the text. Like “inside”
+            cliponaxis (bool): Determines whether the text nodes are clipped above.
+            text_auto (bool): Determines the display of text.
             textposition (str): Specifies the location of the text.
             opacity (float): The text opacity.
             marker_line_width (float): The marker line width.
@@ -306,7 +306,6 @@ class WLTS:
 
         Raises:
             ImportError: If plotly could not be imported.
-
         """
         try:
             import plotly.express as px
@@ -357,29 +356,58 @@ class WLTS:
 
             return new_title.split("_")[0]
 
+        # Function to get the correct color based on collection and class
+        def get_color(row):
+            collection = row["collection"]
+            class_name = row["class"]
+            
+            # Iterate through the list of color_dict to find the color for the collection and class
+            for color_map in parameters["color_dict"]:
+                if collection in color_map:
+                    collection_colors = color_map[collection]
+                    # If class exists in the collection's color map, return the color
+                    if class_name in collection_colors:
+                        return collection_colors[class_name]
+            
+            # Default color if no match is found
+            return "#000000"  # Black as the default color
+
+        # Assign colors using the get_color function
+        if parameters.get("color_dict"):
+            df["color"] = df.apply(get_color, axis=1)
+
         if parameters["type"] == "scatter":
             # Validates the data for this plot type
             if len(dataframe.point_id.unique()) == 1:
-                fig = px.scatter(
-                    df,
-                    y=["class", "collection"],
-                    x="date",
-                    color="class",
-                    symbol="class",
-                    labels={
-                        "date": parameters["date"],
-                        "value": parameters["value"],
-                    },
+                import plotly.graph_objects as go  # Importar graph_objects para maior controle
+
+                # Criar o gráfico de dispersão manualmente
+                fig = go.Figure()
+
+                # Adicionar cada ponto com a cor correspondente
+                for _, row in df.iterrows():
+                    fig.add_trace(go.Scatter(
+                        x=[row["date"]],
+                        y=[row["class"]],
+                        mode="markers",
+                        marker=dict(
+                            color=row["color"],  # Usar a cor da coluna 'color'
+                            size=parameters["marker_size"],
+                            line=dict(width=parameters["marker_line_width"])
+                        ),
+                        name=row["class"],  # Nome da classe para a legenda
+                        showlegend=True if _ == 0 else False  # Mostrar legenda apenas uma vez
+                    ))
+
+                # Atualizar layout
+                fig.update_layout(
                     title=parameters["title"],
+                    xaxis_title=parameters["date"],
+                    yaxis_title=parameters["value"],
                     width=parameters["width"],
                     height=parameters["height"],
-                )
-                fig.update_traces(marker_size=parameters["marker_size"])
-                fig.update_layout(
                     legend_title_text=parameters["legend_title_text"],
-                    font=dict(
-                        size=parameters["font_size"],
-                    ),
+                    font=dict(size=parameters["font_size"])
                 )
 
                 return fig
@@ -404,6 +432,7 @@ class WLTS:
                     height=parameters["height"],
                     labels={"date": parameters["date"], "value": parameters["value"]},
                     text_auto=parameters["text_auto"],
+                    color=df["color"],
                 )
                 fig.update_layout(
                     legend_title_text=parameters["legend_title_text"],
@@ -417,57 +446,6 @@ class WLTS:
                     opacity=parameters["opacity"],
                     marker_line_width=parameters["marker_line_width"],
                 )
-
-                return fig
-
-            elif (
-                len(dataframe.collection.unique()) >= 1
-                and len(dataframe.point_id.unique()) >= 1
-            ):
-                mydf = (
-                    dataframe.groupby(["date", "collection"])
-                    .apply(lambda x: x.groupby("class").count())
-                    .rename(columns={"collection": "size", "date": "date_old"})
-                    .reset_index()
-                )
-
-                fig = px.bar(
-                    mydf,
-                    x="date",
-                    y="size",
-                    facet_col="collection",
-                    color="class",
-                    text="size",
-                    barmode="overlay",
-                    width=parameters["width"],
-                    height=parameters["height"],
-                    labels={
-                        "size": parameters["title_y"],
-                        "date": parameters["date"],
-                        "collection": "Collection",
-                    },
-                )
-
-                fig.update_traces(
-                    textfont_size=parameters["textfont_size"],
-                    textangle=parameters["textangle"],
-                    textposition=parameters["textposition"],
-                    cliponaxis=parameters["cliponaxis"],
-                    opacity=parameters["opacity"],
-                    marker_line_width=parameters["marker_line_width"],
-                )
-                fig.update_layout(
-                    legend_title_text="Class",
-                    font=dict(
-                        size=12,
-                    ),
-                    title_text=parameters["title"],
-                )
-
-                if parameters["bar_title"]:
-                    fig.for_each_annotation(
-                        lambda a: a.update(text=update_column_title(a))
-                    )
 
                 return fig
         else:
