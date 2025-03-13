@@ -376,39 +376,42 @@ class WLTS:
         if parameters.get("color_dict"):
             df["color"] = df.apply(get_color, axis=1)
 
+        print(df)
+
         if parameters["type"] == "scatter":
             # Validates the data for this plot type
             if len(dataframe.point_id.unique()) == 1:
-                import plotly.graph_objects as go  # Importar graph_objects para maior controle
-
-                # Criar o gráfico de dispersão manualmente
-                fig = go.Figure()
-
-                # Adicionar cada ponto com a cor correspondente
-                for _, row in df.iterrows():
-                    fig.add_trace(go.Scatter(
-                        x=[row["date"]],
-                        y=[row["class"]],
-                        mode="markers",
-                        marker=dict(
-                            color=row["color"],  # Usar a cor da coluna 'color'
-                            size=parameters["marker_size"],
-                            line=dict(width=parameters["marker_line_width"])
-                        ),
-                        name=row["class"],  # Nome da classe para a legenda
-                        showlegend=True if _ == 0 else False  # Mostrar legenda apenas uma vez
-                    ))
-
-                # Atualizar layout
-                fig.update_layout(
+                fig = px.scatter(
+                    df,
+                    y=["class", "collection"],
+                    x="date",
+                    symbol="class",
+                    color="class",
+                    labels={
+                        "date": parameters["date"],
+                        "value": parameters["value"],
+                        
+                    },
                     title=parameters["title"],
-                    xaxis_title=parameters["date"],
-                    yaxis_title=parameters["value"],
                     width=parameters["width"],
                     height=parameters["height"],
-                    legend_title_text=parameters["legend_title_text"],
-                    font=dict(size=parameters["font_size"])
                 )
+                fig.update_traces(
+                    marker=dict(
+                        color=df["color"],  # Define as cores diretamente
+                        size=parameters["marker_size"],
+                        line=dict(width=parameters["marker_line_width"])
+                    )
+                )
+
+                fig.update_layout(
+                    legend_title_text=parameters["legend_title_text"],
+                    font=dict(
+                        size=parameters["font_size"],
+                    ),
+
+                )
+
 
                 return fig
             else:
