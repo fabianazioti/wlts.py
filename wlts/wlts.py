@@ -309,6 +309,7 @@ class WLTS:
         """
         try:
             import plotly.express as px
+            import plotly.graph_objects as go
         except ImportError:
             raise ImportError("You should install Plotly!")
 
@@ -379,39 +380,63 @@ class WLTS:
         print(df)
 
         if parameters["type"] == "scatter":
+            #TODO split base on number of collections
+
+            # Mapeando cores personalizadas para cada classe
+            # color_map = {
+            #     "Formação Florestal": "green",
+            #     "Vegetação Natural Florestal Primária": "blue"
+            # }
+
+            # # Criando o scatter plot
+            # fig = px.scatter(df, x="date", y="class", color="class",
+            #                 symbol="collection",  # Diferencia coleções com símbolos diferentes
+            #                 color_discrete_map=color_map,  # Define as cores manualmente
+            #                 title="Trajetória de Uso e Cobertura da Terra")
+
+            # # Exibir gráfico
+            # fig.show()
+
+
             # Validates the data for this plot type
             if len(dataframe.point_id.unique()) == 1:
-                fig = px.scatter(
-                    df,
-                    y=["class", "collection"],
-                    x="date",
-                    symbol="class",
-                    color="class",
-                    labels={
-                        "date": parameters["date"],
-                        "value": parameters["value"],
-                        
+
+                color_maps = {
+                    "mapbiomas-v9": {
+                        "Formação Florestal": "#4e7223",  # Vermelho
                     },
-                    title=parameters["title"],
-                    width=parameters["width"],
-                    height=parameters["height"],
-                )
-                fig.update_traces(
-                    marker=dict(
-                        color=df["color"],  # Define as cores diretamente
-                        size=parameters["marker_size"],
-                        line=dict(width=parameters["marker_line_width"])
-                    )
-                )
+                    "terraclass_amazonia": {
+                        "Vegetação Natural Florestal Primária": "#2986cc",  # Azul
+                    }
+                }
 
+                def get_color(row):
+                    return color_maps.get(row["collection"], {}).get(row["class"], "#000000")  # Preto como cor padrão
+
+                # Adicionar coluna de cores ao DataFrame
+                df["color"] = df.apply(get_color, axis=1)
+
+                # Criar a figura manualmente
+                fig = go.Figure()
+
+                # Adicionar os dados coleção por coleção
+                for collection, group in df.groupby("collection"):
+                    for class_name, sub_group in group.groupby("class"):
+                        fig.add_trace(go.Scatter(
+                            x=sub_group["date"],
+                            y=[f"({collection})"] * len(sub_group),  # Nome formatado para legibilidade
+                            mode="markers",
+                            marker=dict(color=sub_group["color"], size=parameters["marker_size"]),
+                            name=f"{class_name} ({collection})"
+                        ))
+
+                # Configuração do layout
                 fig.update_layout(
-                    legend_title_text=parameters["legend_title_text"],
-                    font=dict(
-                        size=parameters["font_size"],
-                    ),
-
+                    title=parameters["title"],
+                    xaxis_title=parameters["date"],
+                    yaxis_title=parameters["value"],
+                    legend_title=parameters["legend_title_text"],
                 )
-
 
                 return fig
             else:
