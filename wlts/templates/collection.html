@@ -16,6 +16,10 @@
         padding-bottom: 5px;
     }
 
+    p, td {
+        color: #222; /* Texto normal mais escuro */
+    }
+
     .table-container {
         margin-top: 10px;
         overflow-x: auto;
@@ -45,7 +49,7 @@
 </style>
 
 <div class="container">
-    <h3><strong>Title: <\strong>{{ collection.title }} ({{ collection.name }})</h3>
+    <h3><strong>Title: </strong>{{ collection.title }} ({{ collection.name }})</h3>
     <p><strong>Type:</strong> {{ collection.collection_type }}</p>
     <p><strong>Description:</strong> {{ collection.description }}</p>
 

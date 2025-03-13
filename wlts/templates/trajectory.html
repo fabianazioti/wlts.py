@@ -13,11 +13,11 @@
    border-radius: 5px;
    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
- 
+
   .active, .collapsible:hover {
    background-color: #ccc;
   }
- 
+
   .content {
    padding: 0 18px;
    display: none;
@@ -45,6 +45,7 @@
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 15px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* Sombra na tabela */
   }
 
   th, td {
@@ -54,7 +55,8 @@
   }
 
   th {
-    background-color: #f2f2f2;
+    background-color: #007BFF !important; /* Cor do fundo */
+    color: white !important; /* Cor do texto */
     font-weight: bold;
   }
 
@@ -65,12 +67,8 @@
   tr:hover {
     background-color: #f1f1f1;
   }
-
-  /* Adicionando sombra nas tabelas */
-  table {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  }
 </style>
+
 
 {% for tj in trajectories['trajectories'] %}
   <button type="button" class="collapsible"><b>Trajectory for Latitude {{tj['query']['latitude']}} Longitude {{tj['query']['longitude']}}</b></button>
