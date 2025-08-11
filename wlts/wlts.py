@@ -25,6 +25,7 @@ from typing import Any, Dict, Iterator, Optional
 
 import httpx
 import lccs
+import numpy as np
 import requests
 
 from .collection import Collections
@@ -99,37 +100,24 @@ class WLTS:
         Keyword Args:
             collections (optional): A string with collections names separated by commas,
             or any sequence of strings. If omitted, the values for all collections are retrieved.
-            longitude (int/float/list): A longitude value according to EPSG:4326.
-            latitude (int/float/list): A latitude value according to EPSG:4326.
+            longitude (float/int/list/ndarray): Longitude(s) in EPSG:4326.
+            latitude (float/int/list/ndarray): Latitude(s) in EPSG:4326.
             start_date (:obj:`str`, optional): The begin of a time interval.
             end_date (:obj:`str`, optional): The end of a time interval.
-            geometry (:obj:`str`, optional): A string that accepted True of False.
+            geometry (:obj:`str`, optional): A string that accepted True or False.
             language (:obj:`str`, optional): The language of classes.
 
         Returns:
-            Trajectory: A trajectory object as a dictionary.
-
-        Example:
-
-            Retrieves a trajectory:
-
-            .. doctest::
-                :skipif: WLTS_EXAMPLE_URL is None
-
-                >>> from wlts import *
-                >>> service = WLTS(WLTS_EXAMPLE_URL)
-                >>> tj = service.tj(latitude=-12.0, longitude=-54.0, collections='mapbiomas-v6,terraclass_amazonia')
-                >>> ts.trajectory
-                [{'class': 'Formação Florestal', 'collection': 'mapbiomas-v6', 'date': '2007'}, ...]
+            Trajectory or Trajectories
         """
 
         def validate_lat_long(lat, long):
-            if (type(lat) not in (float, int)) or (type(long) not in (float, int)):
+            if not isinstance(
+                lat, (float, int, np.floating, np.integer)
+            ) or not isinstance(long, (float, int, np.floating, np.integer)):
                 raise ValueError("Arguments latitude and longitude must be numeric.")
-
             if (lat < -90.0) or (lat > 90.0):
                 raise ValueError("latitude is out-of range [-90,90]!")
-
             if (long < -180.0) or (long > 180.0):
                 raise ValueError("longitude is out-of range [-180,180]!")
 
@@ -147,17 +135,26 @@ class WLTS:
 
         if "language" in options:
             self._support_l = self._support_language()
-            if options["language"] in [e.value for e in self._support_l]:
-                pass
-            else:
+            if options["language"] not in [e.value for e in self._support_l]:
                 s = ", ".join([e for e in self.allowed_language])
                 raise KeyError(f"Language not supported! Use: {s}")
 
-        if type(latitude) != list and type(longitude) != list:
+        if "collections" in options and not isinstance(options["collections"], str):
+            options["collections"] = ",".join(options["collections"])
+
+        is_scalar = isinstance(
+            latitude, (float, int, np.floating, np.integer)
+        ) and isinstance(longitude, (float, int, np.floating, np.integer))
+
+        if is_scalar:
             validate_lat_long(latitude, longitude)
 
             data = self._trajectory(
-                **{"latitude": latitude, "longitude": longitude, **options}
+                **{
+                    "latitude": float(latitude),
+                    "longitude": float(longitude),
+                    **options,
+                }
             )
 
             for trj in data["result"]["trajectory"]:
@@ -168,23 +165,37 @@ class WLTS:
                     data["result"]["trajectory"], target_system=options["target_system"]
                 )
                 data["result"]["trajectory"] = json.loads(j)
-
                 return Trajectory(data)
 
             return Trajectory(data)
 
-        result = list()
+        if isinstance(latitude, np.ndarray):
+            latitude = latitude.tolist()
+        if isinstance(longitude, np.ndarray):
+            longitude = longitude.tolist()
+
+        if not isinstance(latitude, list) or not isinstance(longitude, list):
+            raise ValueError(
+                "latitude and longitude must be float, int, list, or numpy.ndarray"
+            )
+
+        if len(latitude) != len(longitude):
+            raise ValueError("latitude and longitude must have the same length")
+
+        result = []
         index = 1
 
         for lat, long in zip(latitude, longitude):
             validate_lat_long(lat, long)
 
-            data = self._trajectory(**{"latitude": lat, "longitude": long, **options})
+            data = self._trajectory(
+                **{"latitude": float(lat), "longitude": float(long), **options}
+            )
 
             for trj in data["result"]["trajectory"]:
                 trj["point_id"] = index
 
-            index = index + 1
+            index += 1
             result.append(Trajectory(data))
 
         return Trajectories({"trajectories": result})
@@ -390,13 +401,8 @@ class WLTS:
 
         if parameters["type"] == "bar":
             # Validates the data for this plot type - Unique collection or multiples collections
-            if (
-                len(df.collection.unique()) == 1
-                and len(df.point_id.unique()) >= 1
-            ):
-                df_group = (
-                    df.groupby(["date", "class"]).count()["point_id"].unstack()
-                )
+            if len(df.collection.unique()) == 1 and len(df.point_id.unique()) >= 1:
+                df_group = df.groupby(["date", "class"]).count()["point_id"].unstack()
                 fig = px.bar(
                     df_group,
                     title=parameters["title"],
@@ -427,7 +433,9 @@ class WLTS:
                 and len(dataframe.point_id.unique()) >= 1
             ):
                 df_group = (
-                    df.groupby(["collection", "date", "class"], observed=False)  # ou True
+                    df.groupby(
+                        ["collection", "date", "class"], observed=False
+                    )  # ou True
                     .agg(count=("point_id", "count"))
                     .reset_index()
                 )
@@ -516,7 +524,7 @@ class WLTS:
         :rtype: dict
 
         :raises ValueError: If the response body does not contain a valid json.
-       """ 
+        """
         url = f"{self._url}/{op}"
         params.setdefault("access_token", self._access_token)
 
