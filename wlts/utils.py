@@ -43,3 +43,13 @@ class Utils:
         """
         template = templateEnv.get_template(template_name)
         return template.render(**kwargs)
+
+    @classmethod
+    def update_column_title(cls, title):
+        """Update the collection name with spaces and capitalize."""
+        new_title = (title.text.split("=")[-1]).capitalize()
+
+        if len(new_title.split("_")) > 1:
+            return new_title.split("_")[0] + " " + new_title.split("_")[-1].capitalize()
+
+        return new_title.split("_")[0]

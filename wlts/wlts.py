@@ -21,7 +21,7 @@ This module introduces a class named ``WLTS`` that can be used to retrieve
 trajectories for a given location.
 """
 import json
-from typing import Any, Dict, Iterator, Optional
+from typing import Dict
 
 import httpx
 import lccs
@@ -347,50 +347,46 @@ class WLTS:
         parameters.setdefault("opacity", 0.8)
         parameters.setdefault("marker_line_width", 1.5)
 
-        # Update column title bar plot
-        parameters.setdefault("bar_title", False)
-
         df = dataframe.copy()
         df["class"] = df["class"].astype("category")
         df["date"] = df["date"].astype("category")
         df["collection"] = df["collection"].astype("category")
 
-        def update_column_title(title):
-            """Update the collection name with spaces and capitalize."""
-            new_title = (title.text.split("=")[-1]).capitalize()
-
-            if len(new_title.split("_")) > 1:
-                return (
-                    new_title.split("_")[0]
-                    + " "
-                    + new_title.split("_")[-1].capitalize()
+        if parameters["type"] == "scatter":
+            if len(df.point_id.unique()) == 1:
+                df["label"] = (
+                    df["collection"].astype(str) + " - " + df["class"].astype(str)
                 )
 
-            return new_title.split("_")[0]
+                color_dict = parameters.get("color_dict")
+                if color_dict and any(color_dict.values()):
+                    color_discrete_map = {
+                        f"{collection} - {class_name}": color
+                        for collection, classes in color_dict.items()
+                        for class_name, color in classes.items()
+                    }
+                else:
+                    color_discrete_map = None
 
-        if parameters["type"] == "scatter":
-            # Validates the data for this plot type
-            if len(df.point_id.unique()) == 1:
                 fig = px.scatter(
                     df,
-                    y=["class", "collection"],
                     x="date",
-                    color="class",
-                    symbol="class",
+                    y="collection",
+                    color="label",
+                    color_discrete_map=color_discrete_map,
                     labels={
                         "date": parameters["date"],
-                        "value": parameters["value"],
+                        "collection": parameters["value"],
                     },
                     title=parameters["title"],
                     width=parameters["width"],
                     height=parameters["height"],
                 )
+
                 fig.update_traces(marker_size=parameters["marker_size"])
                 fig.update_layout(
                     legend_title_text=parameters["legend_title_text"],
-                    font=dict(
-                        size=parameters["font_size"],
-                    ),
+                    font=dict(size=parameters["font_size"]),
                 )
 
                 return fig
@@ -400,9 +396,20 @@ class WLTS:
                 )
 
         if parameters["type"] == "bar":
-            # Validates the data for this plot type - Unique collection or multiples collections
+            # Validação: única coleção e pontos >= 1
             if len(df.collection.unique()) == 1 and len(df.point_id.unique()) >= 1:
                 df_group = df.groupby(["date", "class"]).count()["point_id"].unstack()
+
+                # Qual é a coleção única
+                collection = df.collection.unique()[0]
+
+                color_dict = parameters.get("color_dict")
+                if color_dict and collection in color_dict:
+                    # Mapeia classe -> cor para essa coleção
+                    color_discrete_map = color_dict[collection]
+                else:
+                    color_discrete_map = None  # cores padrão do Plotly
+
                 fig = px.bar(
                     df_group,
                     title=parameters["title"],
@@ -410,6 +417,7 @@ class WLTS:
                     height=parameters["height"],
                     labels={"date": parameters["date"], "value": parameters["title_y"]},
                     text_auto=parameters["text_auto"],
+                    color_discrete_map=color_discrete_map,
                 )
 
                 fig.update_layout(
@@ -427,18 +435,25 @@ class WLTS:
                 )
 
                 return fig
-
             elif (
                 len(dataframe.collection.unique()) >= 1
                 and len(dataframe.point_id.unique()) >= 1
             ):
                 df_group = (
-                    df.groupby(
-                        ["collection", "date", "class"], observed=False
-                    )  # ou True
+                    df.groupby(["collection", "date", "class"], observed=False)
                     .agg(count=("point_id", "count"))
                     .reset_index()
                 )
+
+                color_dict = parameters.get("color_dict")
+
+                if color_dict:
+                    # Gerar map único class->color, unificando todas as coleções
+                    color_discrete_map = {}
+                    for classes in color_dict.values():
+                        color_discrete_map.update(classes)
+                else:
+                    color_discrete_map = None  # cores padrão
 
                 fig = px.bar(
                     df_group,
@@ -456,6 +471,7 @@ class WLTS:
                     },
                     text="count",
                     text_auto=parameters["text_auto"],
+                    color_discrete_map=color_discrete_map,
                 )
 
                 fig.update_layout(
@@ -473,6 +489,7 @@ class WLTS:
                 )
 
                 return fig
+
         else:
             raise RuntimeError("No plot support for this trajectory!")
 
