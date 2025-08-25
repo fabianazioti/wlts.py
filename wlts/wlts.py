@@ -42,7 +42,7 @@ class WLTS:
         `WLTS specification <https://github.com/brazil-data-cube/wlts-spec>`_.
     """
 
-    def __init__(self, url, lccs_url=None, access_token=None):
+    def __init__(self, url, lccs_url=None, access_token=None, language=None):
         """Create a WLTS client attached to the given host address (an URL).
 
         Args:
@@ -59,9 +59,17 @@ class WLTS:
             {"x-api-key": self._access_token} if self._access_token else {}
         )
 
+        self._language: str = language or "pt-br"
+
         #: str: URL for the LCCS server.
         self._lccs_url = (
-            lccs_url if lccs_url else "https://brazildatacube.dpi.inpe.br/lccs/"
+            lccs_url if lccs_url else "https://data.inpe.br/bdc/lccs/v1"
+        )
+
+        self.lccs_service = lccs.LCCS(
+            url=self._lccs_url, 
+            language=self._language,
+            access_token=self._access_token
         )
 
     @property
@@ -288,8 +296,25 @@ class WLTS:
         """Return the WLTS server instance URL."""
         return self._url
 
-    @classmethod
-    def plot(cls, dataframe, **parameters):
+    def build_color_dict(self, collections) -> dict:
+        """Build colors from lccs."""
+        color_maps = {}
+
+        for collection in collections:
+            describe_collection = self._describe_collection(collection)
+
+            system_id = describe_collection["classification_system"].get("id")
+
+            classification_system = self.lccs_service.classification_system(system=system_id)
+
+            color_maps[collection] = {
+                cv.title: cv.color
+                for cv in classification_system.classes(style_format_name_or_id="SLD-Feature-Point")
+            }
+
+        return color_maps
+
+    def plot(self, dataframe, **parameters):
         """Plot the trajectory on a scatter or bar plot.
 
         Args:
@@ -324,6 +349,7 @@ class WLTS:
         except ImportError:
             raise ImportError("You should install Plotly!")
 
+        # Defaults
         parameters.setdefault("marker_size", 10)
         parameters.setdefault("title", "Land Use and Cover Trajectory")
         parameters.setdefault("title_y", "Number of Points")
@@ -335,15 +361,14 @@ class WLTS:
         parameters.setdefault("font_size", 12)
         parameters.setdefault("type", "scatter")
 
-        # Parameters to update traces
+        # Traces defaults
         parameters.setdefault("textfont_size", 12)
         parameters.setdefault("textangle", 0)
         parameters.setdefault("textposition", "auto")
         parameters.setdefault("cliponaxis", False)
 
-        # Parameters to update layout
+        # Layout defaults
         parameters.setdefault("text_auto", True)
-        parameters.setdefault("textposition", "auto")
         parameters.setdefault("opacity", 0.8)
         parameters.setdefault("marker_line_width", 1.5)
 
@@ -352,21 +377,26 @@ class WLTS:
         df["date"] = df["date"].astype("category")
         df["collection"] = df["collection"].astype("category")
 
+        # 🔑 Resolve o color_dict sempre aqui
+        color_dict = parameters.get("color_dict")
+        if not (color_dict and any(color_dict.values())):
+            color_dict = self.build_color_dict(
+                collections=list(df["collection"].unique())
+            )
+
+        # --- Scatter ---
         if parameters["type"] == "scatter":
             if len(df.point_id.unique()) == 1:
                 df["label"] = (
                     df["collection"].astype(str) + " - " + df["class"].astype(str)
                 )
 
-                color_dict = parameters.get("color_dict")
-                if color_dict and any(color_dict.values()):
-                    color_discrete_map = {
-                        f"{collection} - {class_name}": color
-                        for collection, classes in color_dict.items()
-                        for class_name, color in classes.items()
-                    }
-                else:
-                    color_discrete_map = None
+                # Achata dicionário coleção+classe -> cor
+                color_discrete_map = {
+                    f"{collection} - {class_name}": color
+                    for collection, classes in color_dict.items()
+                    for class_name, color in classes.items()
+                }
 
                 fig = px.scatter(
                     df,
@@ -388,27 +418,19 @@ class WLTS:
                     legend_title_text=parameters["legend_title_text"],
                     font=dict(size=parameters["font_size"]),
                 )
-
                 return fig
             else:
                 raise ValueError(
                     "The scatter plot is for one point only! Please try another type: bar plot."
                 )
 
+        # --- Bar (uma coleção) ---
         if parameters["type"] == "bar":
-            # Validação: única coleção e pontos >= 1
             if len(df.collection.unique()) == 1 and len(df.point_id.unique()) >= 1:
                 df_group = df.groupby(["date", "class"]).count()["point_id"].unstack()
 
-                # Qual é a coleção única
                 collection = df.collection.unique()[0]
-
-                color_dict = parameters.get("color_dict")
-                if color_dict and collection in color_dict:
-                    # Mapeia classe -> cor para essa coleção
-                    color_discrete_map = color_dict[collection]
-                else:
-                    color_discrete_map = None  # cores padrão do Plotly
+                color_discrete_map = color_dict.get(collection, None)
 
                 fig = px.bar(
                     df_group,
@@ -424,7 +446,6 @@ class WLTS:
                     legend_title_text=parameters["legend_title_text"],
                     font=dict(size=parameters["font_size"]),
                 )
-
                 fig.update_traces(
                     textfont_size=parameters["textfont_size"],
                     textangle=parameters["textangle"],
@@ -433,27 +454,20 @@ class WLTS:
                     opacity=parameters["opacity"],
                     marker_line_width=parameters["marker_line_width"],
                 )
-
                 return fig
-            elif (
-                len(dataframe.collection.unique()) >= 1
-                and len(dataframe.point_id.unique()) >= 1
-            ):
+
+            # --- Bar (várias coleções) ---
+            elif len(df.collection.unique()) >= 1 and len(df.point_id.unique()) >= 1:
                 df_group = (
                     df.groupby(["collection", "date", "class"], observed=False)
                     .agg(count=("point_id", "count"))
                     .reset_index()
                 )
 
-                color_dict = parameters.get("color_dict")
-
-                if color_dict:
-                    # Gerar map único class->color, unificando todas as coleções
-                    color_discrete_map = {}
-                    for classes in color_dict.values():
-                        color_discrete_map.update(classes)
-                else:
-                    color_discrete_map = None  # cores padrão
+                # Junta todos os dicionários de classes em um só
+                color_discrete_map = {}
+                for classes in color_dict.values():
+                    color_discrete_map.update(classes)
 
                 fig = px.bar(
                     df_group,
@@ -471,14 +485,13 @@ class WLTS:
                     },
                     text="count",
                     text_auto=parameters["text_auto"],
-                    color_discrete_map=color_discrete_map,
+                    color_discrete_map=color_discrete_map or None,
                 )
 
                 fig.update_layout(
                     legend_title_text=parameters["legend_title_text"],
                     font=dict(size=parameters["font_size"]),
                 )
-
                 fig.update_traces(
                     textfont_size=parameters["textfont_size"],
                     textangle=parameters["textangle"],
@@ -487,11 +500,10 @@ class WLTS:
                     opacity=parameters["opacity"],
                     marker_line_width=parameters["marker_line_width"],
                 )
-
                 return fig
 
-        else:
-            raise RuntimeError("No plot support for this trajectory!")
+        raise RuntimeError("No plot support for this trajectory!")
+
 
     def __str__(self):
         """Return the string representation of the WLTS object."""
