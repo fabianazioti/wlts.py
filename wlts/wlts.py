@@ -549,7 +549,7 @@ class WLTS:
         :type url: str
 
         :param params: (optional) Dictionary, list of tuples or bytes to send
-        in the query string for the underlying `Requests`.
+            in the query string for the underlying Requests.
         :type params: dict
 
         :rtype: dict

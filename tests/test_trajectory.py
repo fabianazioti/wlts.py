@@ -80,7 +80,7 @@ def test_list_collection(respx_mock_all):
 
 def test_describe_collection(respx_mock_all):
    client = wlts.WLTS(BASE_URL, lccs_url=LCCS_URL)
-   desc = client["mapbiomas5_amazonia"]
+   desc = client["mapbiomas-v10"]
    assert desc["collection_type"] == "Feature"
 
 
@@ -91,7 +91,7 @@ def test_trajectory(respx_mock_all):
        longitude=-54.0,
        start_date="2001",
        end_date="2011",
-       collections="mapbiomas5_amazonia",
+       collections="mapbiomas-v10",
    )
    assert isinstance(traj, dict)
    assert "result" in traj

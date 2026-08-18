@@ -15,42 +15,54 @@
     You should have received a copy of the GNU General Public License
     along with this program. If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
 
-.. include:: ../../README.rst
-   :end-before: Installation
 
+WLTS API
+========
 
-WLTS Documentation
-===================
+WLTS Client
+------------
 
-User's guide
-============
+.. automodule:: wlts.wlts
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-.. toctree::
-   :maxdepth: 2
+Collection
+-----------
 
-   users-guide/index
+.. automodule:: wlts.collection
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-API
-===
+Trajectory
+-----------
 
-.. toctree::
-   :maxdepth: 2
+.. automodule:: wlts.trajectory
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-   api/index
+Trajectories
+-------------
 
-Project
-=======
+.. automodule:: wlts.trajectories
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-.. toctree::
-   :maxdepth: 1
+CLI
+---
 
-   repository
-   history
-   license
+.. automodule:: wlts.cli
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
+Utils
+-----
 
-How to collaborate
-==================
-
-If something is not working, or if there is wrong or missing information in the documentation, or
-if you would like to suggest an idea or improvement, please, create an entry in the `issues page <https://github.com/brazil-data-cube/wlts.py/issues>`_ of wlts.py repository and explain the details.
+.. automodule:: wlts.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
